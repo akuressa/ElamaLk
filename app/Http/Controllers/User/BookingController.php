@@ -125,11 +125,11 @@ class BookingController extends Controller
         // Step 2: Decode plan_features since it's a nested JSON string
         $planFeatures = is_string($planDetails['plan_features']) ? json_decode($planDetails['plan_features'], true) : $planDetails['plan_features'];
 
-        $payment_gateway_percentage = $planFeatures['payment_gateway_charge'];
+        // Calculate service charge (10% as per frontend)
+        $service_charge = (float)($total_price) * (10 / 100);
 
-        $payment_gateway_charge = (float)($total_price) * ($payment_gateway_percentage / 100);
-
-        $amountToBePaid = ((float)($total_price) * (float)($config[25]->config_value) / 100) + (float)($total_price) + (float)($payment_gateway_charge);
+        // Calculate total amount (service price + service charge)
+        $amountToBePaid = (float)($total_price) + (float)($service_charge);
         $amountToBePaidPaise = round($amountToBePaid, 2);
 
         $booking = new Booking();

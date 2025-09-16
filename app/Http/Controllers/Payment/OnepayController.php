@@ -148,7 +148,7 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
 
     // Get the user and booking details
     $user = Auth::user();
-    $booking = Booking::find($booking_id);
+    $booking = Booking::where('booking_id', $booking_id)->first();
 
     // dd($booking);
 
@@ -230,7 +230,7 @@ public function bookingOnepayNew(Request $request, $booking_id)
 
     // Get the user and booking details
     $user = Auth::user();
-    $booking = Booking::find($booking_id);
+    $booking = Booking::where('booking_id', $booking_id)->first();
 
 
     if (!$booking) {
