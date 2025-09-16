@@ -276,6 +276,16 @@ Route::group(['middleware' => 'Installer'], function () {
     // Wallet
     Route::get('{business_id}/wallet', [App\Http\Controllers\BusinessAdmin\WalletController::class, 'index'])->name('wallet.index');
     Route::post('{business_id}/withdraw-request', [App\Http\Controllers\BusinessAdmin\WalletController::class, 'withdrawRequest'])->name('withdraw-request');
+
+    // Business Plans
+    Route::get('{business_id}/business-plans', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'index'])->name('business-plans.index');
+    Route::get('{business_id}/business-plans/create', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'create'])->name('business-plans.create');
+    Route::post('{business_id}/business-plans', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'store'])->name('business-plans.store');
+    Route::get('{business_id}/business-plans/{business_plan_id}', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'show'])->name('business-plans.show');
+    Route::get('{business_id}/business-plans/{business_plan_id}/edit', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'edit'])->name('business-plans.edit');
+    Route::put('{business_id}/business-plans/{business_plan_id}', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'update'])->name('business-plans.update');
+    Route::delete('{business_id}/business-plans/{business_plan_id}', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'destroy'])->name('business-plans.destroy');
+    Route::get('{business_id}/business-plans/{business_plan_id}/toggle', [App\Http\Controllers\BusinessAdmin\BusinessPlanController::class, 'toggle'])->name('business-plans.toggle');
   });
 
   // User Routes
