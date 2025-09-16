@@ -161,9 +161,9 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
     $config = Configuration::get();
 
     // OnePay Credentials (Ideally, load these from .env or config)
-    $appId = env('ONEPAY_APP_ID');
-    $token = env('ONEPAY_TOKEN');
-    $hashSalt = env('ONEPAY_HASH_SALT');
+    $appId = 'WF8X118E6EDF0C075805F';
+    $token = '328ff36ed3189b4a291d5f2348839fd5fc8c3c267ec8e61bf64635f17d2a13e18c5e96360cf47e19.3SI1118E6EDF0C07580A6';
+    $hashSalt = '1VO6118E6EDF0C075808A';
 
     // Prepare the redirect URL after payment (where the user should be redirected after payment completion)
     $redirectUrl = route('user.my-bookings');  // Adjust this to your needs (e.g., after payment completion)
@@ -177,6 +177,7 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
         'app_id' => $appId,
         'reference' => $reference, // Unique reference generated above
         'customer_first_name' => $user->name,
+        'customer_last_name' => '',   
         'customer_phone_number' => $user->phone ?? '+94770000000',
         'customer_email' => $user->email,
         'transaction_redirect_url' => $redirectUrl,
@@ -201,7 +202,8 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
         $transaction->transaction_id = $reference; // Use the reference generated above
         $transaction->transaction_date = now();
         $transaction->user_id = $user->user_id;
-        $transaction->business_id = $booking->business_id;
+        $transaction->plan_id = '';
+        // $transaction->business_id = $booking->business_id;
         $transaction->transaction_total = $booking->total_price;
         $transaction->transaction_currency = 'LKR';
         $transaction->transaction_status = "pending"; // Set status as pending until payment completes
