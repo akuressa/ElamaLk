@@ -388,6 +388,7 @@ Route::group(['middleware' => 'Installer'], function () {
   });
 
   Route::get('/payonepay/{bookingId}', [App\Http\Controllers\Payment\OnepayController::class, 'bookingOnepayNewtwo'])->name('user.appointment.booktest');
+  Route::get('/onepay/booking/callback', [App\Http\Controllers\Payment\OnepayController::class, 'handleBookingCallback'])->name('user.booking.callback');
 
     Route::get('/booking-payment-onepay/{bookingId}', [App\Http\Controllers\Payment\OnepayController::class, "bookingOnepay"])->name('bookingOnepaytest');
 

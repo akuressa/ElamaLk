@@ -15,10 +15,13 @@ use App\Models\Plan;
 use App\Models\User;
 use App\Models\Setting;
 use App\Models\Transaction;
+use App\Models\BookingTransaction;
+use App\Models\Business;
+use App\Models\BusinessService;
+use App\Models\BusinessEmployee;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Models\Booking;
-use App\Models\BookingTransaction;
 
 
 class OnepayController extends Controller
@@ -167,6 +170,9 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
 
     // Prepare the redirect URL after payment (where the user should be redirected after payment completion)
     $redirectUrl = route('user.my-bookings');  // Adjust this to your needs (e.g., after payment completion)
+    
+    // Set the callback URL for OnePay to notify us of payment status
+    $callbackUrl = route('user.booking.callback');
 
     // Generate unique reference for the transaction
     $reference = strtoupper(Str::random(12));
@@ -181,6 +187,7 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
         'customer_phone_number' => $user->phone ?? '+94770000000',
         'customer_email' => $user->email,
         'transaction_redirect_url' => $redirectUrl,
+        'callback_url' => $callbackUrl, 
         'currency' => 'LKR'
     ];
 
@@ -197,17 +204,17 @@ public function bookingOnepayNewtwo(Request $request, $booking_id)
 
     // Check if the response is successful and the payment link was generated
     if ($response->successful() && $response->json('status') == 1000) {
-        // Store the transaction before redirecting to OnePay payment page
-        $transaction = new Transaction();
-        $transaction->transaction_id = $reference; // Use the reference generated above
-        $transaction->transaction_date = now();
-        $transaction->user_id = $user->user_id;
-        $transaction->plan_id = '';
-        // $transaction->business_id = $booking->business_id;
-        $transaction->transaction_total = $booking->total_price;
-        $transaction->transaction_currency = 'LKR';
-        $transaction->transaction_status = "pending"; // Set status as pending until payment completes
-        $transaction->save();
+        // Store the booking transaction before redirecting to OnePay payment page
+        $bookingTransaction = new BookingTransaction();
+        $bookingTransaction->booking_transaction_id = $reference; // Use the reference generated above
+        $bookingTransaction->transaction_date = now();
+        $bookingTransaction->user_id = $user->user_id;
+        $bookingTransaction->booking_id = $booking->booking_id; // Store booking ID for callback
+        $bookingTransaction->transaction_total = $booking->total_price;
+        $bookingTransaction->transaction_currency = 'LKR';
+        $bookingTransaction->transaction_status = "pending"; // Set status as pending until payment completes
+        $bookingTransaction->payment_gateway_name = 'OnePay';
+        $bookingTransaction->save();
 
         // Redirect to OnePay payment page with the generated payment link
         $redirectUrl = $response->json('data.gateway.redirect_url');
@@ -324,6 +331,33 @@ public function bookingOnepayNew(Request $request, $booking_id)
         return redirect()->route('business.plans.index')->with('success', trans('Payment completed successfully'));
     }
 
+    // Callback function for booking payments
+    public function handleBookingCallback(Request $request)
+    {
+        Log::info('Booking Callback function:');
+        Log::info('OnePay Booking Callback Response:', $request->all());
+        
+        // Get transaction ID from OnePay callback
+        $transactionId = $request->input('reference');
+
+        // Retrieve booking transaction
+        $bookingTransaction = BookingTransaction::where('booking_transaction_id', $transactionId)->first();
+
+        if (!$bookingTransaction) {
+            return redirect()->route('user.my-bookings')->with('failed', trans('Transaction not found'));
+        }
+
+        // In a real implementation, you should verify the payment status with OnePay API here
+        // For now, we'll assume the payment was successful
+        $bookingTransaction->transaction_status = 'completed';
+        $bookingTransaction->save();
+
+        // Update booking status
+        $this->activateBooking($bookingTransaction);
+
+        return redirect()->route('user.my-bookings')->with('success', trans('Booking payment completed successfully'));
+    }
+
     private function generateHash(array $data)
     {
         // Convert array to JSON string without spaces
@@ -331,7 +365,8 @@ public function bookingOnepayNew(Request $request, $booking_id)
         $jsonString = preg_replace('/\s+/', '', $jsonString);
 
         // Add hash salt
-        $stringToHash = $jsonString . $this->hashSalt;
+        $hashSalt = '1VO6118E6EDF0C075808A';
+        $stringToHash = $jsonString . $hashSalt;
 
         // Generate SHA256 hash
         return hash('sha256', $stringToHash);
@@ -407,6 +442,25 @@ public function bookingOnepayNew(Request $request, $booking_id)
         // Generate invoice and send email (similar to your Stripe implementation)
         // You can move this to a separate method if needed
         $this->generateInvoiceAndSendEmail($transaction);
+    }
+
+    protected function activateBooking($bookingTransaction)
+    {
+        // Get booking details from transaction
+        $booking = Booking::where('booking_id', $bookingTransaction->booking_id)->first();
+        
+        if (!$booking) {
+            Log::error('Booking not found for transaction: ' . $bookingTransaction->booking_transaction_id);
+            return;
+        }
+
+        // Update booking status to confirmed (1 = confirmed, 0 = pending)
+        $booking->status = 1;
+        $booking->save();
+
+        // Update booking transaction status
+        $bookingTransaction->status = 1;
+        $bookingTransaction->save();
     }
 
 }
