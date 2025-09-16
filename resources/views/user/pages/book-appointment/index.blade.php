@@ -181,35 +181,23 @@
                                     </thead>
                                     <tbody>
                                         <tr class="border-b border-gray-300">
-                                            <td class="py-2 px-4 font-bold">{{ __('Plan Price') }}</td>
+                                            <td class="py-2 px-4 font-bold"><span id="service-name"></span></td>
                                             <td class="py-2 px-4">
-                                                {{ $currency->symbol }}<span id="plan-value" class="font-bold">0</span>
+                                                {{ $currency->symbol }} <span id="plan-value" class="font-bold">0</span>
                                             </td>
                                         </tr>
                                         <tr class="border-b border-gray-300">
-                                            <td class="py-2 px-4 font-bold">{{ __('Payment Gateway Charge') }}</td>
+                                            <td class="py-2 px-4 font-bold">{{ __('Service Charge') }}</td>
                                             <td class="py-2 px-4">
-                                                {{ $currency->symbol }}<span id="payment-gateway-charge-value"
+                                                {{ $currency->symbol }} <span id="service-charge-value"
                                                     class="font-bold">0</span>
                                             </td>
                                         </tr>
-                                        <tr class="border-b border-gray-300">
-                                            <td class="py-2 px-4 font-bold">{{ __('Subtotal') }}</td>
-                                            <td class="py-2 px-4">
-                                                {{ $currency->symbol }}<span id="subtotal-value"
-                                                    class="font-bold">0</span>
-                                            </td>
-                                        </tr>
-                                        <tr class="border-b border-gray-300">
-                                            <td class="py-2 px-4 font-bold">{{ __('Tax') }}</td>
-                                            <td class="py-2 px-4">
-                                                {{ $currency->symbol }}<span id="tax-value" class="font-bold">0</span>
-                                            </td>
-                                        </tr>
+
                                         <tr class="border-b border-gray-300">
                                             <td class="py-2 px-4 font-bold">{{ __('Total') }}</td>
                                             <td class="py-2 px-4">
-                                                {{ $currency->symbol }}<span id="total-value" class="font-bold">0</span>
+                                                {{ $currency->symbol }} <span id="total-value" class="font-bold">0</span>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -409,33 +397,30 @@
                 @endforeach
             };
 
+            var serviceNames = {
+                @foreach ($business_services as $service)
+                    "{{ $service->business_service_id }}": "{{ __($service->business_service_name) }}",
+                @endforeach
+            };
+
             // Ensure serviceId is defined elsewhere in your code before using it
             var selectedAmount = serviceAmounts[serviceId] || 0;
-
-            // Get the tax percentage
-            var taxPercentage = {{ $config[25]->config_value }};
+            var selectedServiceName = serviceNames[serviceId] || "";
 
             // Payment Gateway Charge
-            var paymentGatewayCharge = selectedAmount * {{ $payment_gateway_percentage }} / 100;
-
-            var subTotal = selectedAmount + paymentGatewayCharge;
-
-            var tax = selectedAmount * (taxPercentage / 100);
+            var serviceCharge = selectedAmount * (10 / 100);
 
             // Calculate the total amount with tax
-            var total = (tax + selectedAmount + paymentGatewayCharge).toFixed(2);
+            var total = (selectedAmount + serviceCharge).toFixed(2);
+
+            // Update the service name display
+            document.getElementById('service-name').innerText = selectedServiceName;
 
             // Update the amount display with the calculated total
             document.getElementById('plan-value').innerText = selectedAmount.toFixed(2);
 
             // Update the amount display with the calculated payment gateway charge
-            document.getElementById('payment-gateway-charge-value').innerText = paymentGatewayCharge.toFixed(2);
-
-            // Update the amount display with the calculated subtotal
-            document.getElementById('subtotal-value').innerText = subTotal.toFixed(2);
-
-            // Update the amount display with the calculated tax
-            document.getElementById('tax-value').innerText = tax.toFixed(2);
+            document.getElementById('service-charge-value').innerText = serviceCharge.toFixed(2);
 
             // Update the amount display with the calculated total
             document.getElementById('total-value').innerText = total;
