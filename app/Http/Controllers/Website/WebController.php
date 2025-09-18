@@ -9,6 +9,7 @@ use App\Models\Business;
 use App\Models\BusinessCategory;
 use App\Models\BusinessEmployee;
 use App\Models\BusinessPlan;
+use App\Models\BusinessPlanSubscription;
 use App\Models\BusinessService;
 use App\Models\City;
 use App\Models\Configuration;
@@ -23,6 +24,7 @@ use Artesaos\SEOTools\Facades\OpenGraph;
 use Artesaos\SEOTools\Facades\SEOMeta;
 use Artesaos\SEOTools\Facades\SEOTools;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 
@@ -688,6 +690,18 @@ class WebController extends Controller
             // Business Plans
             $business_plans = BusinessPlan::where('business_id', $business_id)->where('is_active', 1)->get();
 
+            // User Subscriptions (if user is logged in)
+            $user_subscriptions = collect();
+            if (Auth::check()) {
+                $user_subscriptions = BusinessPlanSubscription::with('businessPlan')
+                    ->where('user_id', Auth::user()->user_id)
+                    ->where('business_id', $business_id)
+                    ->where('status', 'active')
+                    ->where('end_date', '>', Carbon::now())
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            }
+
             // Employees
             $business_employees = BusinessEmployee::where('business_id', $business_id)->where('status', 1)->get();
 
@@ -695,7 +709,7 @@ class WebController extends Controller
             $currency = Currency::where('iso_code', $config['1']->config_value)->first();
 
             // Return values
-            $returnValues = compact('config', 'setting', 'business_services', 'business_plans', 'business_employees', 'business', 'is_booking_available', 'currency');
+            $returnValues = compact('config', 'setting', 'business_services', 'business_plans', 'user_subscriptions', 'business_employees', 'business', 'is_booking_available', 'currency');
 
             return view("website.pages.business.index", $returnValues);
         } else {

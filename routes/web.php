@@ -26,6 +26,10 @@ Route::group(['middleware' => 'Installer'], function () {
   Route::get('/blog/{blog_slug}', [App\Http\Controllers\Website\WebController::class, "viewBlog"])->name("web.view.blog")->middleware('scriptsanitizer', 'setLocale');
   Route::get('/businesses/{business_category_slug}', [App\Http\Controllers\Website\WebController::class, "businesses"])->name("web.businesses");
   Route::get('/b/{business_id}', [App\Http\Controllers\Website\WebController::class, "business"])->name("web.business");
+  
+  // Business Plan Subscription Routes
+  Route::post('/subscribe-business-plan', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'subscribe'])->name('subscribe.business.plan');
+  Route::get('/user-subscriptions/{business_id}', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'getUserSubscriptions'])->name('user.subscriptions');
 
   // Blog post share
   Route::get('/blog/{blog_slug}/share/facebook', [App\Http\Controllers\Website\ShareController::class, "shareToFacebook"])->name("sharetofacebook");
