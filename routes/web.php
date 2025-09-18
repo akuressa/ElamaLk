@@ -27,9 +27,22 @@ Route::group(['middleware' => 'Installer'], function () {
   Route::get('/businesses/{business_category_slug}', [App\Http\Controllers\Website\WebController::class, "businesses"])->name("web.businesses");
   Route::get('/b/{business_id}', [App\Http\Controllers\Website\WebController::class, "business"])->name("web.business");
   
-  // Business Plan Subscription Routes
-  Route::post('/subscribe-business-plan', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'subscribe'])->name('subscribe.business.plan');
-  Route::get('/user-subscriptions/{business_id}', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'getUserSubscriptions'])->name('user.subscriptions');
+// Business Plan Subscription Routes
+Route::post('/subscribe-business-plan', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'subscribe'])->name('subscribe.business.plan');
+Route::get('/user-subscriptions/{business_id}', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'getUserSubscriptions'])->name('user.subscriptions');
+
+// Business Plan Checkout Routes
+Route::get('/business-plan-checkout/{business_id}/{business_plan_id}', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'checkout'])->name('business.plan.checkout');
+Route::post('/business-plan-payment/{business_id}/{business_plan_id}', [App\Http\Controllers\BusinessPlanSubscriptionController::class, 'processPayment'])->name('business.plan.payment');
+
+// Business Plan Payment Gateway Routes
+Route::get('/business-plan-payment-paypal/{business_plan_id}', [App\Http\Controllers\Payment\PaypalController::class, 'businessPlanPaypal'])->name('business.plan.payment.paypal');
+Route::get('/business-plan-payment-stripe/{business_plan_id}', [App\Http\Controllers\Payment\StripeController::class, 'businessPlanStripe'])->name('business.plan.payment.stripe');
+Route::get('/business-plan-payment-onepay/{business_plan_id}', [App\Http\Controllers\Payment\OnepayController::class, 'businessPlanOnepay'])->name('business.plan.payment.onepay');
+Route::get('/business-plan-payment-mollie/{business_plan_id}', [App\Http\Controllers\Payment\MollieController::class, 'businessPlanMollie'])->name('business.plan.payment.mollie');
+Route::get('/business-plan-payment-razorpay/{business_plan_id}', [App\Http\Controllers\Payment\RazorPayController::class, 'businessPlanRazorPay'])->name('business.plan.payment.razorpay');
+Route::get('/business-plan-payment-paystack/{business_plan_id}', [App\Http\Controllers\Payment\PaystackController::class, 'businessPlanPaystack'])->name('business.plan.payment.paystack');
+Route::get('/business-plan-payment-mercadopago/{business_plan_id}', [App\Http\Controllers\Payment\MercadoPagoController::class, 'businessPlanMercadoPago'])->name('business.plan.payment.mercadopago');
 
   // Blog post share
   Route::get('/blog/{blog_slug}/share/facebook', [App\Http\Controllers\Website\ShareController::class, "shareToFacebook"])->name("sharetofacebook");

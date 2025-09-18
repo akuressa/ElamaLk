@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('duration_months');
             $table->date('start_date');
             $table->date('end_date');
-            $table->enum('status', ['active', 'expired', 'cancelled'])->default('active');
+            $table->enum('status', ['pending', 'active', 'expired', 'cancelled'])->default('pending');
             $table->timestamps();
             
             $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');

@@ -42,6 +42,11 @@ class BusinessPlanSubscription extends Model
     }
 
     // Helper methods
+    public function isPending()
+    {
+        return $this->status === 'pending';
+    }
+
     public function isActive()
     {
         return $this->status === 'active' && $this->end_date > Carbon::now();

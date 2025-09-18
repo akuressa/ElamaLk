@@ -651,69 +651,10 @@
 
         // Handle subscription confirmation
         function handleSubscription() {
-            const button = document.getElementById('confirm-subscription');
-            const confirmText = document.getElementById('confirm-text');
-            const loadingText = document.getElementById('loading-text');
-            
-            if (!button || !confirmText || !loadingText) return;
-            
-            // Show loading state
-            confirmText.style.display = 'none';
-            loadingText.style.display = 'inline';
-            button.disabled = true;
-            
-            // Make AJAX request
-            fetch('{{ route("subscribe.business.plan") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    business_plan_id: currentPlanId,
-                    business_id: currentBusinessId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Hide subscription modal
-                ModalManager.hide('subscription-modal');
-                
-                if (data.success) {
-                    // Show success modal
-                    const successMessage = document.getElementById('success-message');
-                    if (successMessage) {
-                        successMessage.textContent = data.message;
-                    }
-                    ModalManager.show('success-modal');
-                } else {
-                    // Show error modal
-                    const errorMessage = document.getElementById('error-message');
-                    if (errorMessage) {
-                        errorMessage.textContent = data.error || 'Something went wrong. Please try again.';
-                    }
-                    ModalManager.show('error-modal');
-                }
-            })
-            .catch(error => {
-                console.error('Subscription Error:', error);
-                
-                // Hide subscription modal
-                ModalManager.hide('subscription-modal');
-                
-                // Show error modal
-                const errorMessage = document.getElementById('error-message');
-                if (errorMessage) {
-                    errorMessage.textContent = 'Something went wrong. Please try again.';
-                }
-                ModalManager.show('error-modal');
-            })
-            .finally(() => {
-                // Reset button state
-                if (confirmText) confirmText.style.display = 'inline';
-                if (loadingText) loadingText.style.display = 'none';
-                if (button) button.disabled = false;
-            });
+            // Redirect to checkout page instead of making AJAX call
+            if (currentPlanId) {
+                window.location.href = '{{ route("business.plan.checkout", ["business_id" => $business->business_id, "business_plan_id" => ":planId"]) }}'.replace(':planId', currentPlanId);
+            }
         }
     </script>
 @endsection

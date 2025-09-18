@@ -696,7 +696,7 @@ class WebController extends Controller
                 $user_subscriptions = BusinessPlanSubscription::with('businessPlan')
                     ->where('user_id', Auth::user()->user_id)
                     ->where('business_id', $business_id)
-                    ->where('status', 'active')
+                    ->where('status', 'completed')
                     ->where('end_date', '>', Carbon::now())
                     ->orderBy('created_at', 'desc')
                     ->get();
