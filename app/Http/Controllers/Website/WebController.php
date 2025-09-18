@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Business;
 use App\Models\BusinessCategory;
 use App\Models\BusinessEmployee;
+use App\Models\BusinessPlan;
 use App\Models\BusinessService;
 use App\Models\City;
 use App\Models\Configuration;
@@ -684,6 +685,9 @@ class WebController extends Controller
             // Services
             $business_services = BusinessService::where('business_id', $business_id)->where('status', 1)->get();
 
+            // Business Plans
+            $business_plans = BusinessPlan::where('business_id', $business_id)->where('is_active', 1)->get();
+
             // Employees
             $business_employees = BusinessEmployee::where('business_id', $business_id)->where('status', 1)->get();
 
@@ -691,7 +695,7 @@ class WebController extends Controller
             $currency = Currency::where('iso_code', $config['1']->config_value)->first();
 
             // Return values
-            $returnValues = compact('config', 'setting', 'business_services', 'business_employees', 'business', 'is_booking_available', 'currency');
+            $returnValues = compact('config', 'setting', 'business_services', 'business_plans', 'business_employees', 'business', 'is_booking_available', 'currency');
 
             return view("website.pages.business.index", $returnValues);
         } else {

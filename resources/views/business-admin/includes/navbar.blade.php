@@ -141,7 +141,7 @@
                     </li>
 
                     {{-- Business Plans --}}
-                    <li class="nav-item {{ request()->is('business-admin/*/business-plans') ? 'active' : '' }}">
+                    <li class="nav-item {{ request()->is('business-admin/*/business-plans') || request()->is('business-admin/*/business-plans/create') || request()->is('business-admin/*/business-plans/*/edit') || request()->is('business-admin/*/business-plans/delete/*') || request()->is('business-admin/*/business-plans/toggle/*') ? 'active' : '' }}">
                         <a class="nav-link"
                             href="{{ route('business-admin.business-plans.index', ['business_id' => $business_id]) }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">

@@ -133,5 +133,104 @@
                 </div>
             </div>
         </section>
+
+        {{-- Business Plans with Pricing --}}
+        @if($business_plans->count() > 0)
+        <section class="pb-20 relative overflow-hidden">
+            <div class="container px-4 mx-auto">
+                <div class="flex flex-wrap -m-8">
+                    <div class="w-full md:w-1/2 p-8">
+                        <div class="md:max-w-2xl">
+                            <h2 class="mb-8 text-6xl md:text-7xl xl:text-7xl font-bold font-heading tracking-px-n leading-none">
+                                {{ __('Business Plans') }}
+                            </h2>
+                            <p class="mb-8 text-lg text-gray-600 font-medium leading-relaxed">
+                                {{ __('We offer comprehensive business plans designed to meet your specific needs. Choose from our range of plans:') }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-1/2 p-8">
+                        <div class="md:max-w-2xl ml-auto">
+                            <div class="flex flex-wrap">
+                                <div class="w-full">
+                                    <a x-data="{ accordion: true }" x-on:click.prevent="accordion = !accordion"
+                                        class="block border border-gray-300 rounded-xl" href="#">
+                                        <div class="flex flex-wrap justify-between p-5 -m-1.5">
+                                            <div class="flex-1 p-1.5">
+                                                <div class="flex flex-wrap -m-1.5">
+                                                    <div class="flex-1 p-1.5">
+                                                        <h3 class="font-semibold leading-normal capitalize">
+                                                            {{ __('Business Plans with pricing') }}
+                                                        </h3>
+                                                        <div x-ref="container"
+                                                            :style="accordion ? 'height: ' + $refs.container.scrollHeight +
+                                                                'px' : ''"
+                                                            class="overflow-hidden h-0 duration-500">
+                                                            @foreach ($business_plans as $business_plan)
+                                                                <div class="p-4 border-b">
+                                                                    <div class="flex items-center justify-between w-full">
+                                                                        <p class="font-semibold">{{ __($business_plan->plan_name) }}</p>
+                                                                        <p class="font-semibold">{{ $currency->iso_code }} {{ number_format($business_plan->plan_price, 2) }}</p>
+                                                                    </div>
+
+                                                                    <p class="mt-2 text-sm text-gray-500 font-medium">
+                                                                        {{ __('Duration') }}: {{ $business_plan->duration_label }}
+                                                                    </p>
+
+                                                                    @if($business_plan->plan_description)
+                                                                    <p class="mt-4 text-gray-600 font-medium text-indent-4">
+                                                                        {{ $business_plan->plan_description }}
+                                                                    </p>
+                                                                    @endif
+
+                                                                    @php
+                                                                        $services = $business_plan->getServices();
+                                                                    @endphp
+                                                                    @if($services->count() > 0)
+                                                                    <div class="mt-3">
+                                                                        <p class="text-sm font-medium text-gray-700 mb-2">{{ __('Includes Services') }}:</p>
+                                                                        <div class="flex flex-wrap gap-1">
+                                                                            @foreach($services as $service)
+                                                                                <span class="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">{{ $service->business_service_name }}</span>
+                                                                            @endforeach
+                                                                        </div>
+                                                                    </div>
+                                                                    @endif
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="w-auto p-1.5 flex">
+                                                <div :class="{ 'hidden': !accordion }" class="hidden">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                        class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-up">
+                                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                                        <path d="M6 15l6 -6l6 6" />
+                                                    </svg>
+                                                </div>
+                                                <div :class="{ 'hidden': accordion }">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                        class="icon icon-tabler icons-tabler-outline icon-tabler-chevron-down">
+                                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                                        <path d="M6 9l6 6l6 -6" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        @endif
     </div>
 @endsection
