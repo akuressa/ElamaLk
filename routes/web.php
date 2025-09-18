@@ -39,6 +39,7 @@ Route::post('/business-plan-payment/{business_id}/{business_plan_id}', [App\Http
 Route::get('/business-plan-payment-paypal/{business_plan_id}', [App\Http\Controllers\Payment\PaypalController::class, 'businessPlanPaypal'])->name('business.plan.payment.paypal');
 Route::get('/business-plan-payment-stripe/{business_plan_id}', [App\Http\Controllers\Payment\StripeController::class, 'businessPlanStripe'])->name('business.plan.payment.stripe');
 Route::get('/business-plan-payment-onepay/{business_plan_id}', [App\Http\Controllers\Payment\OnepayController::class, 'businessPlanOnepay'])->name('business.plan.payment.onepay');
+Route::get('/business-plan-payment-onepay-callback/{business_plan_id}', [App\Http\Controllers\Payment\OnepayController::class, 'handleBusinessPlanCallback'])->name('business.plan.payment.onepay.callback');
 Route::get('/business-plan-payment-mollie/{business_plan_id}', [App\Http\Controllers\Payment\MollieController::class, 'businessPlanMollie'])->name('business.plan.payment.mollie');
 Route::get('/business-plan-payment-razorpay/{business_plan_id}', [App\Http\Controllers\Payment\RazorPayController::class, 'businessPlanRazorPay'])->name('business.plan.payment.razorpay');
 Route::get('/business-plan-payment-paystack/{business_plan_id}', [App\Http\Controllers\Payment\PaystackController::class, 'businessPlanPaystack'])->name('business.plan.payment.paystack');

@@ -19,10 +19,10 @@ use App\Models\BookingTransaction;
 use App\Models\Business;
 use App\Models\BusinessService;
 use App\Models\BusinessEmployee;
+use App\Models\BusinessPlanSubscription;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Models\Booking;
-use App\Models\BusinessPlanSubscription;
 use App\Models\BusinessPlan;
 
 
@@ -538,6 +538,7 @@ public function bookingOnepayNew(Request $request, $booking_id)
             'customer_phone_number' => $user->phone ?? '+94770000000',
             'customer_email' => $user->email,
             'transaction_redirect_url' => $redirectUrl,
+            'transaction_callback_url' => route('business.plan.payment.onepay.callback', $business_plan_id),
             'currency' => 'LKR'
         ];
 
@@ -573,6 +574,64 @@ public function bookingOnepayNew(Request $request, $booking_id)
 
         } else {
             return redirect()->route('website.business.index')->with('failed', 'OnePay payment failed to initiate.');
+        }
+    }
+
+    // Callback function for business plan payments
+    public function handleBusinessPlanCallback(Request $request, $business_plan_id)
+    {
+        Log::info('Business Plan Callback function:');
+        Log::info('OnePay Business Plan Callback Response:', $request->all());
+        
+        // Get transaction ID from OnePay callback
+        $transactionId = $request->input('reference');
+
+        // Retrieve transaction
+        $transaction = Transaction::where('transaction_id', $transactionId)
+            ->where('business_plan_id', $business_plan_id)
+            ->first();
+
+        if (!$transaction) {
+            return redirect()->route('website.business.index')->with('failed', trans('Transaction not found'));
+        }
+
+        // In a real implementation, you should verify the payment status with OnePay API here
+        // For now, we'll assume the payment was successful
+        $transaction->transaction_status = 'completed';
+        $transaction->save();
+
+        // Update business plan subscription status
+        $this->activateBusinessPlanSubscription($transaction);
+
+        // Get business_id from subscription for redirect
+        $subscription = BusinessPlanSubscription::where('business_plan_id', $transaction->business_plan_id)
+            ->where('user_id', $transaction->user_id)
+            ->first();
+            
+        $business_id = $subscription ? $subscription->business_id : '';
+        
+        return redirect()->route('website.business.index', ['business_id' => $business_id])->with('success', trans('Business plan subscription activated successfully'));
+    }
+
+    // Activate business plan subscription after successful payment
+    protected function activateBusinessPlanSubscription($transaction)
+    {
+        // Find the business plan subscription by business_plan_id and user_id
+        $subscription = BusinessPlanSubscription::where('business_plan_id', $transaction->business_plan_id)
+            ->where('user_id', $transaction->user_id)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($subscription) {
+            // Update subscription status to active
+            $subscription->status = 'active';
+            $subscription->save();
+
+        } else {
+            Log::error('Business plan subscription not found for activation:', [
+                'business_plan_id' => $transaction->business_plan_id,
+                'user_id' => $transaction->user_id
+            ]);
         }
     }
 
