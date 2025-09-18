@@ -184,6 +184,20 @@
                                                     <p class="mt-1 text-sm text-gray-500">
                                                         {{ __('Remaining Days') }}: {{ $subscription->getRemainingDays() }}
                                                     </p>
+                                                    
+                                                    @php
+                                                        $includedServices = $subscription->getIncludedServices();
+                                                    @endphp
+                                                    @if($includedServices->count() > 0)
+                                                    <div class="mt-3">
+                                                        <p class="text-sm font-medium text-gray-700 mb-2">{{ __('Included Services') }}:</p>
+                                                        <div class="flex flex-wrap gap-1">
+                                                            @foreach($includedServices as $service)
+                                                                <span class="inline-block px-6 py-1 text-sm bg-blue-300 text-blue-800 rounded-full">{{ $service->business_service_name }}</span>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                    @endif
                                                 </div>
                                             @endforeach
                                         </div>

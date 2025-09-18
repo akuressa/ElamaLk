@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingTransaction;
 use App\Models\Business;
 use App\Models\BusinessEmployee;
+use App\Models\BusinessPlanSubscription;
 use App\Models\BusinessService;
 use App\Models\Configuration;
 use App\Models\Currency;
@@ -49,6 +50,19 @@ class BookingController extends Controller
             // Gateways
             $gateways = PaymentGateway::where('is_enabled', true)->where('status', 1)->get();
 
+            // Check if user has active subscription for this business
+            $hasActiveSubscription = false;
+            $userSubscription = null;
+            if (Auth::check()) {
+                $userSubscription = BusinessPlanSubscription::where('user_id', Auth::user()->user_id)
+                    ->where('business_id', $request->business_id)
+                    ->where('status', 'active')
+                    ->where('end_date', '>', Carbon::now())
+                    ->with('businessPlan')
+                    ->first();
+                $hasActiveSubscription = $userSubscription ? true : false;
+            }
+
             // Business Details
             $business = Business::where('business_id', $request->business_id)->first();
 
@@ -80,7 +94,7 @@ class BookingController extends Controller
             $business_employees = BusinessEmployee::where('business_id', $request->business_id)->where('status', 1)->get();
 
             // Return values
-            $returnValues = compact('setting', 'config', 'business', 'business_services', 'business_employees', 'currency', 'gateways', 'title', 'payment_gateway_percentage');
+            $returnValues = compact('setting', 'config', 'business', 'business_services', 'business_employees', 'currency', 'gateways', 'title', 'payment_gateway_percentage', 'hasActiveSubscription', 'userSubscription');
 
             return view("user.pages.book-appointment.index", $returnValues);
         } else {
@@ -125,12 +139,34 @@ class BookingController extends Controller
         // Step 2: Decode plan_features since it's a nested JSON string
         $planFeatures = is_string($planDetails['plan_features']) ? json_decode($planDetails['plan_features'], true) : $planDetails['plan_features'];
 
-        // Calculate service charge (10% as per frontend)
-        $service_charge = (float)($total_price) * (10 / 100);
+        // Check if user has active subscription for this business
+        $activeSubscription = BusinessPlanSubscription::where('user_id', Auth::user()->user_id)
+            ->where('business_id', $business_id)
+            ->where('status', 'active')
+            ->where('end_date', '>', Carbon::now())
+            ->with('businessPlan')
+            ->first();
+            
+        $hasActiveSubscription = $activeSubscription ? true : false;
+        
+        // Check if the selected service is included in the subscription plan
+        $serviceIncludedInPlan = false;
+        if ($hasActiveSubscription && $activeSubscription->businessPlan) {
+            $planServiceIds = $activeSubscription->businessPlan->business_service_ids ?? [];
+            $serviceIncludedInPlan = in_array($request->business_service_id, $planServiceIds);
+        }
 
-        // Calculate total amount (service price + service charge)
-        $amountToBePaid = (float)($total_price) + (float)($service_charge);
-        $amountToBePaidPaise = round($amountToBePaid, 2);
+        // If user has active subscription AND service is included in plan, no charges
+        if ($hasActiveSubscription && $serviceIncludedInPlan) {
+            $amountToBePaidPaise = 0;
+        } else {
+            // Calculate service charge (10% as per frontend) for all other cases
+            $service_charge = (float)($total_price) * (10 / 100);
+            
+            // Calculate total amount (service price + service charge)
+            $amountToBePaid = (float)($total_price) + (float)($service_charge);
+            $amountToBePaidPaise = round($amountToBePaid, 2);
+        }
 
         $booking = new Booking();
         $booking->booking_id = uniqid();
@@ -146,12 +182,58 @@ class BookingController extends Controller
         $booking->status = 0;
         $booking->save();
 
-        // dd($booking);
-
-
 
         // Payment Gateway
+        if (!$request->payment_gateway_id) {
+            $invoice_details = [
+                'from_billing_name' => $config[16]->config_value,
+                'from_billing_address' => $config[19]->config_value,
+                'from_billing_city' => $config[20]->config_value,
+                'from_billing_state' => $config[21]->config_value,
+                'from_billing_zipcode' => $config[22]->config_value,
+                'from_billing_country' => $config[23]->config_value,
+                'from_vat_number' => $config[26]->config_value,
+                'from_billing_phone' => $config[18]->config_value,
+                'from_billing_email' => $config[17]->config_value,
+                'to_billing_name' => $billing_details['billing_name'] ?? $user->name,   
+                'to_billing_address' => $billing_details['billing_address'] ?? '',
+                'to_billing_city' => $billing_details['billing_city'] ?? '',
+                'to_billing_state' => $billing_details['billing_state'] ?? '',
+                'to_billing_zipcode' => $billing_details['billing_zipcode'] ?? '',
+                'to_billing_country' => $billing_details['billing_country'] ?? '',
+                'to_billing_phone' => $billing_details['billing_phone'] ?? $user->phone,
+                'to_billing_email' => $billing_details['billing_email'] ?? $user->email,
+                'to_vat_number' => $billing_details['vat_number'] ?? '',
+                'tax_name' => $config[24]->config_value,
+                'tax_type' => $config[14]->config_value,
+                'tax_value' => 0,
+                'subtotal' => 0,
+                'tax_amount' => 0,
+                'payment_gateway_charge' => 0,
+                'invoice_amount' => $booking->total_price,
+            ];
+            // User has active subscription and service is included - no payment required
+            $booking->status = 1; // Mark as confirmed
+            $booking->save();
+            
+            // Create a transaction record for subscription booking
+            $transaction = new BookingTransaction();
+            $transaction->booking_transaction_id = uniqid();
+            $transaction->booking_id = $booking->booking_id;
+            $transaction->user_id = Auth::user()->user_id;
+            $transaction->payment_gateway_name = "Subscription";
+            $transaction->invoice_details = json_encode($invoice_details);
+            $transaction->transaction_currency = $config[1]->config_value;
+            $transaction->transaction_total = 0; // No charge for subscription users
+            $transaction->transaction_date = Carbon::now()->format('Y-m-d H:i:s');
+            $transaction->transaction_status = "completed";
+            $transaction->save();
+            
+            return redirect()->route('user.my-bookings')->withInput()->with('success', trans('Appointment booked successfully! No payment required as this service is included in your subscription plan.'));
+        }
+        
         $payment_mode = PaymentGateway::where('payment_gateway_id', $request->payment_gateway_id)->first();
+        
         //   dd($payment_mode->payment_gateway_name);
         if ($payment_mode->payment_gateway_name == "Paypal") {
             // dd('Check key and secretaaddff');
@@ -284,23 +366,53 @@ class BookingController extends Controller
 
         // Booking Details
         $booking_details = Booking::where('booking_id', $booking_id)->first();
+        if (!$booking_details) {
+            return redirect()->back()->with('failed', 'Booking not found.');
+        }
 
         // Transactions Details
         $transactionDetails = BookingTransaction::where('booking_id', $booking_details->booking_id)->first();
+        if (!$transactionDetails) {
+            return redirect()->back()->with('failed', 'Transaction details not found.');
+        }
         $encode = json_decode($transactionDetails['invoice_details'], true);
+        if (!$encode) {
+            // Provide default values if invoice_details is null or invalid JSON
+            $encode = [
+                'from_billing_name' => 'Elama.lk',
+            ];
+        }
 
         // Service and Employee Details
-        $service_name = BusinessService::where('business_service_id', $booking_details->business_service_id)->first()->business_service_name;
-        $employee_name = BusinessEmployee::where('business_employee_id', $booking_details->business_employee_id)->first()->business_employee_name;
+        $service = BusinessService::where('business_service_id', $booking_details->business_service_id)->first();
+        if (!$service) {
+            return redirect()->back()->with('failed', 'Service not found.');
+        }
+        $service_name = $service->business_service_name;
+        
+        $employee = BusinessEmployee::where('business_employee_id', $booking_details->business_employee_id)->first();
+        if (!$employee) {
+            return redirect()->back()->with('failed', 'Employee not found.');
+        }
+        $employee_name = $employee->business_employee_name;
 
         // Customer Email
         $user = User::where('user_id', $booking_details->user_id)->first();
+        if (!$user) {
+            return redirect()->back()->with('failed', 'User not found.');
+        }
         $user_email = $user->email;
         $user_name = $user->name;
 
         // Business Email
         $business = Business::where('business_id', $booking_details->business_id)->first();
+        if (!$business) {
+            return redirect()->back()->with('failed', 'Business not found.');
+        }
         $business_user = User::where('user_id', $business->user_id)->first();
+        if (!$business_user) {
+            return redirect()->back()->with('failed', 'Business user not found.');
+        }
         $business_email = $business_user->email;
         $business_name = $business_user->name;
 

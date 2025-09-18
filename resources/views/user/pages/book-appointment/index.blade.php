@@ -131,7 +131,7 @@
 
             {{-- Payment Methods --}}
             @if ($type == 1)
-                <div class="w-full">
+                <div class="w-full" id="payment-methods-section">
                     {{-- Payment Methods --}}
                     <h3 class="text-xl font-semibold text-gray-500 py-2 px-5">{{ __('Payment Methods') }}</h3>
                     <div class="py-2 px-5">
@@ -205,12 +205,68 @@
 
                                 {{-- Book Button --}}
                                 <div class="flex justify-end mt-4">
-                                    <button type="submit"
+                                    <button type="submit" id="book-button-payment"
                                         class="bg-{{ $config[11]->config_value }}-500 text-white font-bold py-3 px-6 rounded-md hover:bg-{{ $config[11]->config_value }}-600 transition">
                                         {{ __('Proceed') }}
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {{-- Subscription Message Section (Hidden by default) --}}
+                <div class="w-full" id="subscription-message-section" style="display: none;">
+                    <div class="p-6">
+                        <div class="bg-green-100 text-green-600 p-4 rounded-lg">
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <div>
+                                    <p class="text-lg font-semibold">{{ __('No Payment Required') }}</p>
+                                    <p class="text-sm" id="subscription-message-text">{{ __('This service is included in your subscription plan. Your appointment will be booked without any payment.') }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+    
+                    {{-- Hidden input for payment gateway (required for form submission) --}}
+                    <input type="hidden" name="payment_gateway_id" id="payment-gateway-input" value="">
+                    
+                    {{-- Pricing Table for Subscription Users --}}
+                    <div class="mb-6 w-full mt-5">
+                        <!-- <table class="min-w-full bg-white border border-gray-300">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="py-2 px-4 text-left text-gray-600 font-semibold">
+                                        {{ __('Description') }}</th>
+                                    <th class="py-2 px-4 text-left text-gray-600 font-semibold">
+                                        {{ __('Amount') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-300">
+                                    <td class="py-2 px-4 font-bold"><span id="service-name-subscription"></span></td>
+                                    <td class="py-2 px-4">
+                                        {{ $currency->symbol }} <span id="plan-value-subscription" class="font-bold">0</span>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-300">
+                                    <td class="py-2 px-4 font-bold">{{ __('Total') }}</td>
+                                    <td class="py-2 px-4">
+                                        {{ $currency->symbol }} <span id="total-value-subscription" class="font-bold text-green-600">0</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table> -->
+
+                        {{-- Book Button --}}
+                        <div class="flex justify-end mt-4">
+                            <button type="submit" id="book-button-subscription"
+                                class="bg-{{ $config[11]->config_value }}-500 text-white font-bold py-3 px-6 rounded-md hover:bg-{{ $config[11]->config_value }}-600 transition">
+                                {{ __('Book Appointment (Free)') }}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -284,27 +340,46 @@
         function fetchEmployees(serviceId) {
             "use strict";
 
-            setAmount(serviceId);
-            const employeeSelect = document.getElementById('employee-select');
-            employeeSelect.innerHTML = '<option value="">Select an Employee</option>'; // Reset options
+            try {
+                // Reset employee dropdown
+                const employeeSelect = document.getElementById('employee-select');
+                if (!employeeSelect) {
+                    console.error('Employee select element not found');
+                    return;
+                }
+                
+                employeeSelect.innerHTML = '<option value="">Select an Employee</option>';
 
-            const serviceOption = document.querySelector(`#service-select option[value="${serviceId}"]`);
-            if (serviceOption) {
-                const employeeIds = JSON.parse(serviceOption.getAttribute('data-employees'));
+                // Get service option and employee IDs
+                const serviceOption = document.querySelector(`#service-select option[value="${serviceId}"]`);
+                if (serviceOption) {
+                    const employeeIds = JSON.parse(serviceOption.getAttribute('data-employees'));
 
-                // Fetch employees based on selected service
-                const employees = @json($business_employees); // Pass all employees to JS
+                    // Fetch employees based on selected service
+                    const employees = @json($business_employees); // Pass all employees to JS
 
-                employeeIds.forEach(employeeId => {
-                    const employee = employees.find(emp => emp.business_employee_id === employeeId);
+                    if (employeeIds && employeeIds.length > 0) {
+                        employeeIds.forEach(employeeId => {
+                            const employee = employees.find(emp => emp.business_employee_id === employeeId);
 
-                    if (employee) {
-                        const option = document.createElement('option');
-                        option.value = employee.business_employee_id;
-                        option.textContent = employee.business_employee_name;
-                        employeeSelect.appendChild(option);
+                            if (employee) {
+                                const option = document.createElement('option');
+                                option.value = employee.business_employee_id;
+                                option.textContent = employee.business_employee_name;
+                                employeeSelect.appendChild(option);
+                            }
+                        });
+                    } else {
+                        console.log('No employees found for service:', serviceId);
                     }
-                });
+                } else {
+                    console.error('Service option not found for serviceId:', serviceId);
+                }
+
+                // Update pricing after employee loading
+                setAmount(serviceId);
+            } catch (error) {
+                console.error('Error in fetchEmployees:', error);
             }
         }
 
@@ -391,40 +466,98 @@
         function setAmount(serviceId) {
             "use strict";
 
-            var serviceAmounts = {
-                @foreach ($business_services as $service)
-                    "{{ $service->business_service_id }}": {{ $service->amount }},
-                @endforeach
-            };
+            try {
+                var serviceAmounts = {
+                    @foreach ($business_services as $service)
+                        "{{ $service->business_service_id }}": {{ $service->amount }},
+                    @endforeach
+                };
 
-            var serviceNames = {
-                @foreach ($business_services as $service)
-                    "{{ $service->business_service_id }}": "{{ __($service->business_service_name) }}",
-                @endforeach
-            };
+                var serviceNames = {
+                    @foreach ($business_services as $service)
+                        "{{ $service->business_service_id }}": "{{ __($service->business_service_name) }}",
+                    @endforeach
+                };
 
-            // Ensure serviceId is defined elsewhere in your code before using it
-            var selectedAmount = serviceAmounts[serviceId] || 0;
-            var selectedServiceName = serviceNames[serviceId] || "";
+                // Ensure serviceId is defined elsewhere in your code before using it
+                var selectedAmount = serviceAmounts[serviceId] || 0;
+                var selectedServiceName = serviceNames[serviceId] || "";
 
-            // Payment Gateway Charge
-            var serviceCharge = selectedAmount * (10 / 100);
+                // Payment Gateway Charge
+                var serviceCharge = selectedAmount * (10 / 100);
 
-            // Calculate the total amount with tax
-            var total = (selectedAmount + serviceCharge).toFixed(2);
+                // Calculate the total amount with tax
+                var total = (selectedAmount + serviceCharge).toFixed(2);
 
-            // Update the service name display
-            document.getElementById('service-name').innerText = selectedServiceName;
+                // Check if user has active subscription
+                var hasActiveSubscription = {{ $hasActiveSubscription ? 'true' : 'false' }};
+                var userSubscription = @json($userSubscription);
+                
+                // Check if the selected service is included in the subscription plan
+                var serviceIncludedInPlan = false;
+                if (hasActiveSubscription && userSubscription && userSubscription.business_plan) {
+                    var planServiceIds = userSubscription.business_plan.business_service_ids || [];
+                    serviceIncludedInPlan = planServiceIds.includes(serviceId);
+                }
 
-            // Update the amount display with the calculated total
-            document.getElementById('plan-value').innerText = selectedAmount.toFixed(2);
+                // Show/hide sections based on service inclusion
+                var paymentMethodsSection = document.getElementById('payment-methods-section');
+                var subscriptionMessageSection = document.getElementById('subscription-message-section');
+                var paymentGatewayInput = document.getElementById('payment-gateway-input');
+                var bookButtonPayment = document.getElementById('book-button-payment');
+                var bookButtonSubscription = document.getElementById('book-button-subscription');
 
-            // Update the amount display with the calculated payment gateway charge
-            document.getElementById('service-charge-value').innerText = serviceCharge.toFixed(2);
+                if (hasActiveSubscription && serviceIncludedInPlan) {
+                    // Service is included in subscription - hide payment methods, show subscription message
+                    if (paymentMethodsSection) paymentMethodsSection.style.display = 'none';
+                    if (subscriptionMessageSection) subscriptionMessageSection.style.display = 'block';
+                    if (paymentGatewayInput) paymentGatewayInput.value = 'subscription';
+                    if (paymentGatewayInput) paymentGatewayInput.name = 'payment_gateway_id'; // Ensure name is set for form submission
+                    if (bookButtonSubscription) bookButtonSubscription.textContent = 'Book Appointment (Free)';
+                    
+                    // Disable radio buttons to prevent conflicts
+                    const radioButtons = document.querySelectorAll('input[name="payment_gateway_id"]');
+                    radioButtons.forEach(radio => {
+                        radio.disabled = true;
+                        radio.checked = false;
+                    });
 
-            // Update the amount display with the calculated total
-            document.getElementById('total-value').innerText = total;
+                    // Update subscription pricing table (check if elements exist)
+                    var serviceNameSub = document.getElementById('service-name-subscription');
+                    var planValueSub = document.getElementById('plan-value-subscription');
+                    var totalValueSub = document.getElementById('total-value-subscription');
+                    
+                    if (serviceNameSub) serviceNameSub.innerText = selectedServiceName;
+                    if (planValueSub) planValueSub.innerText = '0.00';
+                    if (totalValueSub) totalValueSub.innerText = '0.00';
+                } else {
+                    // Service not included or no subscription - show payment methods, hide subscription message
+                    if (paymentMethodsSection) paymentMethodsSection.style.display = 'block';
+                    if (subscriptionMessageSection) subscriptionMessageSection.style.display = 'none';
+                    if (paymentGatewayInput) paymentGatewayInput.value = '';
+                    if (paymentGatewayInput) paymentGatewayInput.name = ''; // Remove name to prevent conflict with radio buttons
+                    if (bookButtonPayment) bookButtonPayment.textContent = 'Proceed';
+                    
+                    // Enable radio buttons for regular payment selection
+                    const radioButtons = document.querySelectorAll('input[name="payment_gateway_id"]');
+                    radioButtons.forEach(radio => {
+                        radio.disabled = false;
+                    });
 
+                    // Update regular pricing table (check if elements exist)
+                    var serviceName = document.getElementById('service-name');
+                    var planValue = document.getElementById('plan-value');
+                    var serviceChargeValue = document.getElementById('service-charge-value');
+                    var totalValue = document.getElementById('total-value');
+                    
+                    if (serviceName) serviceName.innerText = selectedServiceName;
+                    if (planValue) planValue.innerText = selectedAmount.toFixed(2);
+                    if (serviceChargeValue) serviceChargeValue.innerText = serviceCharge.toFixed(2);
+                    if (totalValue) totalValue.innerText = total;
+                }
+            } catch (error) {
+                console.error('Error in setAmount:', error);
+            }
         }
     </script>
 @endsection

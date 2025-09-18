@@ -57,6 +57,15 @@ class BusinessPlanSubscription extends Model
         if ($this->isExpired()) {
             return 0;
         }
-        return Carbon::now()->diffInDays($this->end_date);
+        return (int) Carbon::now()->diffInDays($this->end_date, false);
+    }
+
+    public function getIncludedServices()
+    {
+        if (!$this->businessPlan) {
+            return collect();
+        }
+        
+        return $this->businessPlan->getServices();
     }
 }
