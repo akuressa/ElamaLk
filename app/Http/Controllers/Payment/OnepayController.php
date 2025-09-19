@@ -19,9 +19,11 @@ use App\Models\BookingTransaction;
 use App\Models\Business;
 use App\Models\BusinessService;
 use App\Models\BusinessEmployee;
+use App\Models\BusinessPlanSubscription;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Models\Booking;
+use App\Models\BusinessPlan;
 
 
 class OnepayController extends Controller
@@ -461,6 +463,176 @@ public function bookingOnepayNew(Request $request, $booking_id)
         // Update booking transaction status
         $bookingTransaction->status = 1;
         $bookingTransaction->save();
+    }
+
+    public function businessPlanOnepay($business_plan_id)
+    {
+        $user = Auth::user();
+
+        // Fetch plan & config
+        $plan = BusinessPlan::where('business_plan_id', $business_plan_id)->where('is_active', 1)->first();
+        $config = Configuration::get();
+
+        // dd($plan);
+
+        if (!$plan) {
+            return redirect()->back()->with('error', 'Invalid plan selected.');
+        }
+
+        $billing_details = json_decode($user->billing_details, true) ?? [];
+
+        // Calculate payment gateway charge & tax similar to stripeCheckout
+        $plan_features = is_string($plan->plan_features) ? json_decode($plan->plan_features, true) : $plan->plan_features;
+        // $payment_gateway_charge = round($plan->plan_price * ($plan_features['payment_gateway_charge'] / 100), 2);
+
+        // $tax_percent = (float) $config[25]->config_value; // example index for tax
+        // $tax_amount = round($plan->plan_price * $tax_percent / 100, 2);
+
+        $subtotal = $plan->plan_price;
+        $totalAmount = $plan->plan_price;
+
+        $reference = strtoupper(Str::random(12));
+
+        // Invoice details (similar structure to stripeCheckout)
+        $invoice_details = [
+            'from_billing_name' => $config[16]->config_value,
+            'from_billing_address' => $config[19]->config_value,
+            'from_billing_city' => $config[20]->config_value,
+            'from_billing_state' => $config[21]->config_value,
+            'from_billing_zipcode' => $config[22]->config_value,
+            'from_billing_country' => $config[23]->config_value,
+            'from_vat_number' => $config[26]->config_value,
+            'from_billing_phone' => $config[18]->config_value,
+            'from_billing_email' => $config[17]->config_value,
+            'to_billing_name' => $billing_details['billing_name'] ?? $user->name,
+            'to_billing_address' => $billing_details['billing_address'] ?? '',
+            'to_billing_city' => $billing_details['billing_city'] ?? '',
+            'to_billing_state' => $billing_details['billing_state'] ?? '',
+            'to_billing_zipcode' => $billing_details['billing_zipcode'] ?? '',
+            'to_billing_country' => $billing_details['billing_country'] ?? '',
+            'to_billing_phone' => $billing_details['billing_phone'] ?? $user->phone,
+            'to_billing_email' => $billing_details['billing_email'] ?? $user->email,
+            'to_vat_number' => $billing_details['vat_number'] ?? '',
+            'tax_name' => $config[24]->config_value,
+            'tax_type' => $config[14]->config_value,
+            'tax_value' => 0,
+            'subtotal' => $subtotal,
+            'tax_amount' => 0,
+            'payment_gateway_charge' => 0,
+            'invoice_amount' => $totalAmount,
+        ];
+
+        // OnePay Credentials (Ideally, load from config or env)
+        $appId = 'WF8X118E6EDF0C075805F';
+        $token = '328ff36ed3189b4a291d5f2348839fd5fc8c3c267ec8e61bf64635f17d2a13e18c5e96360cf47e19.3SI1118E6EDF0C07580A6';
+        $hashSalt = '1VO6118E6EDF0C075808A';
+
+        $redirectUrl = route('web.index');
+
+        $body = [
+            'amount' => $totalAmount,
+            'app_id' => $appId,
+            'reference' => $reference,
+            'customer_first_name' => $user->name,
+            'customer_last_name' => '', // optionally split the name
+            'customer_phone_number' => $user->phone ?? '+94770000000',
+            'customer_email' => $user->email,
+            'transaction_redirect_url' => $redirectUrl,
+            'transaction_callback_url' => route('business.plan.payment.onepay.callback', $business_plan_id),
+            'currency' => 'LKR'
+        ];
+
+        $bodyString = json_encode($body, JSON_UNESCAPED_SLASHES);
+        $bodyStringNoSpaces = preg_replace('/\s+/', '', $bodyString) . $hashSalt;
+        $hash = hash('sha256', $bodyStringNoSpaces);
+
+        $response = Http::withHeaders([
+            'Authorization' => $token,
+            'Content-Type' => 'application/json'
+        ])->post("https://merchant-api-live-v2.onepay.lk/api/ipg/gateway/request-payment-link/?hash=$hash", $body);
+
+
+        if ($response->successful() && $response->json('status') == 1000) {
+
+            // Store transaction before redirecting
+            $transaction = new Transaction();
+            $transaction->transaction_id = $reference;  // use your own generated reference
+            $transaction->transaction_date = now();
+            $transaction->user_id = $user->user_id;
+            $transaction->plan_id = '';
+            $transaction->business_plan_id = $business_plan_id;
+            $transaction->description = $plan->plan_name . " Plan";
+            $transaction->payment_gateway_name = "OnePay";
+            $transaction->transaction_total = $totalAmount;
+            $transaction->transaction_currency = 'LKR';
+            $transaction->invoice_details = json_encode($invoice_details);
+            $transaction->transaction_status = "pending";
+            $transaction->save();
+
+            $redirectUrl = $response->json('data.gateway.redirect_url');
+            return redirect($redirectUrl);
+
+        } else {
+            return redirect()->route('website.business.index')->with('failed', 'OnePay payment failed to initiate.');
+        }
+    }
+
+    // Callback function for business plan payments
+    public function handleBusinessPlanCallback(Request $request, $business_plan_id)
+    {
+        Log::info('Business Plan Callback function:');
+        Log::info('OnePay Business Plan Callback Response:', $request->all());
+        
+        // Get transaction ID from OnePay callback
+        $transactionId = $request->input('reference');
+
+        // Retrieve transaction
+        $transaction = Transaction::where('transaction_id', $transactionId)
+            ->where('business_plan_id', $business_plan_id)
+            ->first();
+
+        if (!$transaction) {
+            return redirect()->route('website.business.index')->with('failed', trans('Transaction not found'));
+        }
+
+        // In a real implementation, you should verify the payment status with OnePay API here
+        // For now, we'll assume the payment was successful
+        $transaction->transaction_status = 'completed';
+        $transaction->save();
+
+        // Update business plan subscription status
+        $this->activateBusinessPlanSubscription($transaction);
+
+        // Get business_id from subscription for redirect
+        $subscription = BusinessPlanSubscription::where('business_plan_id', $transaction->business_plan_id)
+            ->where('user_id', $transaction->user_id)
+            ->first();
+            
+        $business_id = $subscription ? $subscription->business_id : '';
+        
+        return redirect()->route('website.business.index', ['business_id' => $business_id])->with('success', trans('Business plan subscription activated successfully'));
+    }
+
+    // Activate business plan subscription after successful payment
+    protected function activateBusinessPlanSubscription($transaction)
+    {
+        // Find the business plan subscription by business_plan_id and user_id
+        $subscription = BusinessPlanSubscription::where('business_plan_id', $transaction->business_plan_id)
+            ->where('user_id', $transaction->user_id)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($subscription) {
+            // Update subscription status to active
+            $subscription->status = 'active';
+            $subscription->save();
+
+        } else {
+            Log::error('Business plan subscription not found for activation:', [
+                'business_plan_id' => $transaction->business_plan_id,
+                'user_id' => $transaction->user_id
+            ]);
+        }
     }
 
 }
